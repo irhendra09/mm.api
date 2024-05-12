@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using mm.api.Dtos;
 using mm.api.Models;
 using mm.api.Repository;
@@ -15,7 +16,7 @@ namespace mm.api.Controllers
         {
             _productRepository = productRepository;
         }
-        // GET: api/product
+        [Authorize(Roles = "Admin,User")]
         [HttpGet]
         public async Task<ApiResponse<List<Product>>> GetAllProducts()
         {
@@ -29,7 +30,8 @@ namespace mm.api.Controllers
                 return new ApiResponse<List<Product>>(HttpStatusCode.InternalServerError, "Internal server error: " + ex.Message);
             }
         }
-        // GET: api/product/5
+
+        [Authorize(Roles = "Admin,User")]
         [HttpGet("{id}")]
         public async Task<ApiResponse<Product>> GetProductById(int id)
         {
@@ -47,7 +49,8 @@ namespace mm.api.Controllers
                 return new ApiResponse<Product>(HttpStatusCode.InternalServerError, "Internal server error: " + ex.Message);
             }
         }
-        // POST: api/product
+
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         public async Task<ApiResponse<ProductResponseDto>> CreateProduct([FromBody] ProductDto product)
         {
@@ -66,7 +69,8 @@ namespace mm.api.Controllers
                 return new ApiResponse<ProductResponseDto>(HttpStatusCode.InternalServerError, "Internal server error: " + ex.Message);
             }
         }
-        // PUT: api/product/5
+
+        [Authorize(Roles = "Admin")]
         [HttpPut("{id}")]
         public async Task<ApiResponse<bool>> UpdateProduct(int id, [FromBody] ProductDto product)
         {
@@ -88,7 +92,8 @@ namespace mm.api.Controllers
                 return new ApiResponse<bool>(HttpStatusCode.InternalServerError, "Internal server error: " + ex.Message);
             }
         }
-        // DELETE: api/product/5
+
+        [Authorize(Roles = "Admin")]
         [HttpDelete("{id}")]
         public async Task<ApiResponse<bool>> DeleteProduct(int id)
         {

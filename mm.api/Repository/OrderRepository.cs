@@ -3,6 +3,7 @@ using mm.api.Data;
 using mm.api.Dtos;
 using mm.api.Models;
 using mm.api.Repository.Interface;
+using System.Reflection.PortableExecutable;
 
 namespace mm.api.Repository
 {
@@ -13,7 +14,7 @@ namespace mm.api.Repository
         {
             _connectionFactory = connectionFactory;
         }
-        // Method to fetch orders based on Status
+
         public async Task<List<Order>> GetAllOrdersAsync(string Status)
         {
             var orders = new List<Order>();
@@ -43,10 +44,10 @@ namespace mm.api.Repository
             }
             return orders;
         }
-        //Create the Order with Pending State
+
         public async Task<CreateOrderResponseDto> CreateOrderAsync(OrderDto orderDto)
         {
-            // Queries to fetch product details and to insert order and order items
+
             var productQuery = "SELECT ProductId, Price, Stock FROM Products WHERE ProductId = @ProductId AND IsDeleted = 0";
             var orderQuery = "INSERT INTO Orders (CustomerId, TotalAmount, Status, OrderDate) OUTPUT INSERTED.OrderId VALUES (@CustomerId, @TotalAmount, @Status, @OrderDate)";
             var itemQuery = "INSERT INTO OrderItems (OrderId, ProductId, Quantity, PriceAtOrder) VALUES (@OrderId, @ProductId, @Quantity, @PriceAtOrder)";
@@ -78,12 +79,12 @@ namespace mm.api.Repository
                                             {
                                                 ProductId = item.ProductId,
                                                 Quantity = item.Quantity,
-                                                PriceAtOrder = price  // Using the price from the database
+                                                PriceAtOrder = price
                                             });
                                         }
                                         else
                                         {
-                                            // Handle the case where there isn't enough stock
+
                                             createOrderResponseDTO.Message = $"Insufficient Stock for Product ID {item.ProductId}";
                                             createOrderResponseDTO.IsCreated = false;
                                             return createOrderResponseDTO;
@@ -91,16 +92,16 @@ namespace mm.api.Repository
                                     }
                                     else
                                     {
-                                        // Handle the case for Invalid Product Id
+
                                         createOrderResponseDTO.Message = $"Product Not Found for Product ID {item.ProductId}";
                                         createOrderResponseDTO.IsCreated = false;
                                         return createOrderResponseDTO;
                                     }
-                                    reader.Close(); // Ensure the reader is closed before next iteration
+                                    reader.Close();
                                 }
                             }
                         }
-                        // Proceed with creating the order if all items are validated
+
                         using (var orderCommand = new SqlCommand(orderQuery, connection, transaction))
                         {
                             orderCommand.Parameters.AddWithValue("@CustomerId", orderDto.CustomerId);
@@ -108,7 +109,7 @@ namespace mm.api.Repository
                             orderCommand.Parameters.AddWithValue("@Status", "Pending");
                             orderCommand.Parameters.AddWithValue("@OrderDate", DateTime.Now);
                             var orderId = (int)await orderCommand.ExecuteScalarAsync();
-                            // Insert all validated items
+
                             foreach (var validatedItem in validatedItems)
                             {
                                 using (var itemCommand = new SqlCommand(itemQuery, connection, transaction))
@@ -131,19 +132,21 @@ namespace mm.api.Repository
                     catch (Exception)
                     {
                         transaction.Rollback();
-                        throw;  // Re-throw to handle the exception further up the call stack
+                        throw;
                     }
                 }
             }
         }
         public async Task<ConfirmOrderResponseDto> ConfirmOrderAsync(int orderId)
         {
-            // Queries to fetch order and payment details
+
             var orderDetailsQuery = "SELECT TotalAmount FROM Orders WHERE OrderId = @OrderId";
             var paymentDetailsQuery = "SELECT Amount, Status FROM Payments WHERE OrderId = @OrderId";
             var updateOrderStatusQuery = "UPDATE Orders SET Status = 'Confirmed' WHERE OrderId = @OrderId";
             var getOrderItemsQuery = "SELECT ProductId, Quantity FROM OrderItems WHERE OrderId = @OrderId";
             var updateProductQuery = "UPDATE Products SET Stock = Stock - @Stock WHERE ProductId = @ProductId";
+            var getCustomer = "SELECT CustomerId, FROM Order WHERE OrderId = @OrderId";
+            var setPoint = "UPDATE Customer SET Point = Point + @Point WHERE CustomerId = @CustomerId";
             ConfirmOrderResponseDto confirmOrderResponseDTO = new ConfirmOrderResponseDto()
             {
                 OrderId = orderId,
@@ -158,7 +161,7 @@ namespace mm.api.Repository
                         decimal orderAmount = 0m;
                         decimal paymentAmount = 0m;
                         string paymentStatus = string.Empty;
-                        // Retrieve order amount
+
                         using (var orderCommand = new SqlCommand(orderDetailsQuery, connection, transaction))
                         {
                             orderCommand.Parameters.AddWithValue("@OrderId", orderId);
@@ -171,7 +174,7 @@ namespace mm.api.Repository
                                 reader.Close();
                             }
                         }
-                        // Retrieve payment details
+
                         using (var paymentCommand = new SqlCommand(paymentDetailsQuery, connection, transaction))
                         {
                             paymentCommand.Parameters.AddWithValue("@OrderId", orderId);
@@ -185,10 +188,10 @@ namespace mm.api.Repository
                                 reader.Close();
                             }
                         }
-                        // Check if payment is complete and matches the order total
+  
                         if (paymentStatus == "Completed" && paymentAmount == orderAmount)
                         {
-                            // Update product quantities
+
                             using (var itemCommand = new SqlCommand(getOrderItemsQuery, connection, transaction))
                             {
                                 itemCommand.Parameters.AddWithValue("@OrderId", orderId);
@@ -208,7 +211,25 @@ namespace mm.api.Repository
                                     reader.Close();
                                 }
                             }
-                            // Update order status to 'Confirmed'
+                            using(var custCommand = new SqlCommand(getCustomer, connection, transaction)) {
+                                custCommand.Parameters.AddWithValue("@OrderId", orderId);
+                                using (var reader = await custCommand.ExecuteReaderAsync())
+                                {
+                                    if (await reader.ReadAsync())
+                                    {
+                                        int customerId = reader.GetInt32(reader.GetOrdinal("CustomerId"));
+                                        int pointsEarned = CalculatePointsEarned(paymentAmount);
+
+                                        using (var setPointCommand = new SqlCommand(setPoint, connection, transaction))
+                                        {
+                                            setPointCommand.Parameters.AddWithValue("@Point", pointsEarned);
+                                            setPointCommand.Parameters.AddWithValue("@CustomerId", customerId);
+                                            await setPointCommand.ExecuteNonQueryAsync();
+                                        }
+                                    }
+                                    reader.Close();
+                                }
+                            }
                             using (var statusCommand = new SqlCommand(updateOrderStatusQuery, connection, transaction))
                             {
                                 statusCommand.Parameters.AddWithValue("@OrderId", orderId);
@@ -235,10 +256,7 @@ namespace mm.api.Repository
                 }
             }
         }
-        // Update the order status with conditions
-        // An order cannot move directly from "Pending" to "Delivered".
-        // An order can only be set to "Cancelled" if it is currently "Pending".
-        // An order can be marked as "Processing" only if it's currently "Confirmed"
+
         public async Task<OrderStatusResponseDto> UpdateOrderStatusAsync(int orderId, string newStatus)
         {
             OrderStatusResponseDto orderStatusDto = new OrderStatusResponseDto()
@@ -250,7 +268,7 @@ namespace mm.api.Repository
                 await connection.OpenAsync();
                 try
                 {
-                    // Fetch the current status of the order
+
                     var currentStatusQuery = "SELECT Status FROM Orders WHERE OrderId = @OrderId";
                     string currentStatus;
                     using (var statusCommand = new SqlCommand(currentStatusQuery, connection))
@@ -265,14 +283,14 @@ namespace mm.api.Repository
                         }
                         currentStatus = result.ToString();
                     }
-                    // Check if the status transition is valid
+
                     if (!IsValidStatusTransition(currentStatus, newStatus))
                     {
                         orderStatusDto.Message = $"Invalid status transition from {currentStatus} to {newStatus}.";
                         orderStatusDto.IsUpdated = false;
                         return orderStatusDto;
                     }
-                    // Update the status if valid
+
                     var updateStatusQuery = "UPDATE Orders SET Status = @NewStatus WHERE OrderId = @OrderId";
                     using (var updateCommand = new SqlCommand(updateStatusQuery, connection))
                     {
@@ -301,7 +319,7 @@ namespace mm.api.Repository
         }
         private bool IsValidStatusTransition(string currentStatus, string newStatus)
         {
-            // Define valid status transitions
+
             switch (currentStatus)
             {
                 case "Pending":
@@ -311,16 +329,16 @@ namespace mm.api.Repository
                 case "Processing":
                     return newStatus == "Delivered";
                 case "Delivered":
-                    // Delivered orders should not transition to any other status
+
                     return false;
                 case "Cancelled":
-                    // Cancelled orders should not transition to any other status
+
                     return false;
                 default:
                     return false;
             }
         }
-        //Get the Order Details by Id
+
         public async Task<Order?> GetOrderDetailsAsync(int orderId)
         {
             var query = "SELECT OrderId, CustomerId, TotalAmount, Status, OrderDate FROM Orders WHERE OrderId = @OrderId";
@@ -343,6 +361,17 @@ namespace mm.api.Repository
                         };
                     }
                 }
+            }
+        }
+        private int CalculatePointsEarned(decimal totalSpent)
+        {
+            if (totalSpent > 200000)
+            {
+                return 40;
+            }
+            else
+            {
+                return 20;
             }
         }
     }

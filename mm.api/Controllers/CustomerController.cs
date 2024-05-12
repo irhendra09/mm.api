@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using mm.api.Dtos;
 using mm.api.Models;
 using mm.api.Repository;
@@ -15,7 +16,8 @@ namespace mm.api.Controllers
         {
             _customerRepository = customerRepository;
         }
-        // GET: api/customer
+
+        [Authorize(Roles = "Admin")]
         [HttpGet]
         public async Task<ApiResponse<List<Customer>>> GetAllCustomers()
         {
@@ -29,7 +31,8 @@ namespace mm.api.Controllers
                 return new ApiResponse<List<Customer>>(HttpStatusCode.InternalServerError, "Internal server error: " + ex.Message);
             }
         }
-        // GET: api/customer/5
+
+        [Authorize(Roles = "Admin,User")]
         [HttpGet("{id}")]
         public async Task<ApiResponse<Customer>> GetCustomerById(int id)
         {
@@ -47,7 +50,8 @@ namespace mm.api.Controllers
                 return new ApiResponse<Customer>(HttpStatusCode.InternalServerError, "Internal server error: " + ex.Message);
             }
         }
-        // POST: api/customer
+
+        [Authorize(Roles = "Admin,User")]
         [HttpPost]
         public async Task<ApiResponse<CustomerResponseDto>> CreateCustomer([FromBody] CustomerDto customerDto)
         {
@@ -66,7 +70,8 @@ namespace mm.api.Controllers
                 return new ApiResponse<CustomerResponseDto>(HttpStatusCode.InternalServerError, "Internal server error: " + ex.Message);
             }
         }
-        // PUT: api/customer/5
+
+        [Authorize(Roles = "Admin,User")]
         [HttpPut("{id}")]
         public async Task<ApiResponse<bool>> UpdateCustomer(int id, [FromBody] CustomerDto customerDto)
         {
@@ -88,7 +93,8 @@ namespace mm.api.Controllers
                 return new ApiResponse<bool>(HttpStatusCode.InternalServerError, "Internal server error: " + ex.Message);
             }
         }
-        // DELETE: api/customer/5
+
+        [Authorize(Roles = "Admin")]
         [HttpDelete("{id}")]
         public async Task<ApiResponse<bool>> DeleteCustomer(int id)
         {

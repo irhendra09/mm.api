@@ -8,8 +8,8 @@ namespace mm.api.Models
         public HttpStatusCode StatusCode { get; set; }
         public string Message { get; set; }
         public T Data { get; set; }
-        public object Error { get; set; }  // Flexible enough to include any error details
-                                           // Constructor for a Successful Response
+        public object Error { get; set; }
+
         public ApiResponse(T data, string message = "", HttpStatusCode statusCode = HttpStatusCode.OK)
         {
             Success = true;
@@ -18,7 +18,7 @@ namespace mm.api.Models
             Data = data;
             Error = null;
         }
-        // Constructor for an Error Response
+        
         public ApiResponse(HttpStatusCode statusCode, string message, object error = null)
         {
             Success = false;

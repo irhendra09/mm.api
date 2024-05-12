@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using mm.api.Dtos;
 using mm.api.Models;
 using mm.api.Repository;
@@ -15,7 +16,7 @@ namespace mm.api.Controllers
         {
             _orderRepository = orderRepository;
         }
-        // GET: api/order
+        [Authorize(Roles = "Admin")]
         [HttpGet]
         public async Task<ActionResult<ApiResponse<List<Order>>>> GetAllOrders(string Status = "Pending")
         {
@@ -29,7 +30,8 @@ namespace mm.api.Controllers
                 return StatusCode(500, new ApiResponse<List<Order>>(HttpStatusCode.InternalServerError, "Internal server error: " + ex.Message));
             }
         }
-        // POST: api/order
+
+        [Authorize(Roles = "Admin,User")]
         [HttpPost]
         public async Task<ApiResponse<CreateOrderResponseDto>> CreateOrder([FromBody] OrderDto orderDto)
         {
@@ -47,7 +49,8 @@ namespace mm.api.Controllers
                 return new ApiResponse<CreateOrderResponseDto>(HttpStatusCode.InternalServerError, "Internal server error: " + ex.Message);
             }
         }
-        // GET: api/order/5
+
+        [Authorize(Roles = "Admin,User")]
         [HttpGet("{id}")]
         public async Task<ApiResponse<Order>> GetOrderById(int id)
         {
@@ -65,7 +68,8 @@ namespace mm.api.Controllers
                 return new ApiResponse<Order>(HttpStatusCode.InternalServerError, "Internal server error: " + ex.Message);
             }
         }
-        // PUT: api/order/5/status
+
+        [Authorize(Roles = "Admin")]
         [HttpPut("{id}/status")]
         public async Task<ApiResponse<OrderStatusResponseDto>> UpdateOrderStatus(int id, [FromBody] OrderStatusDto status)
         {
@@ -87,7 +91,8 @@ namespace mm.api.Controllers
                 return new ApiResponse<OrderStatusResponseDto>(HttpStatusCode.InternalServerError, "Internal server error: " + ex.Message);
             }
         }
-        // PUT: api/order/5/confirm
+
+        [Authorize(Roles = "Admin")]
         [HttpPut("{id}/confirm")]
         public async Task<ApiResponse<ConfirmOrderResponseDto>> ConfirmOrder(int id)
         {

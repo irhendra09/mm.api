@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using mm.api.Dtos;
 using mm.api.Models;
 using mm.api.Repository;
@@ -16,7 +17,8 @@ namespace mm.api.Controllers
         {
             _paymentRepository = paymentRepository;
         }
-        // POST: api/payment/makepayment
+
+        [Authorize(Roles = "Admin,User")]
         [HttpPost("MakePayment")]
         public async Task<ApiResponse<PaymentResponseDto>> MakePayment([FromBody] PaymentDto paymentDto)
         {
@@ -34,7 +36,8 @@ namespace mm.api.Controllers
                 return new ApiResponse<PaymentResponseDto>(HttpStatusCode.InternalServerError, "Internal Server Error: " + ex.Message);
             }
         }
-        // GET: api/payment/paymentdetails/5
+
+        [Authorize(Roles = "Admin,User")]
         [HttpGet("PaymentDetails/{id}")]
         public async Task<ApiResponse<Payment>> GetPaymentDetails(int id)
         {
@@ -52,7 +55,8 @@ namespace mm.api.Controllers
                 return new ApiResponse<Payment>(HttpStatusCode.InternalServerError, "Internal server error: " + ex.Message);
             }
         }
-        // PUT: api/payment/updatepaymentstatus/5
+
+        [Authorize(Roles = "Admin")]
         [HttpPut("UpdatePaymentStatus/{id}")]
         public async Task<ApiResponse<UpdatePaymentResponseDto>> UpdatePaymentStatus(int id, [FromBody] PaymentStatusDto paymentStatusDTO)
         {
